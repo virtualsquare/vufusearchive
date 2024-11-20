@@ -1,3 +1,3 @@
-[submodule "archivemount"]
-	path = archivemount
-	url = https://github.com/cybernoid/archivemount
+[submodule "archivemount-ng"]
+	path = archivemount-ng
+	url = https://git.sr.ht/~nabijaczleweli/archivemount-ng

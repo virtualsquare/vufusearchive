@@ -3,45 +3,34 @@ project(vufusearchive
     VERSION 0.9.1
     DESCRIPTION "VUOS/vufuse module for archives tar/tgz/.../iso9660"
     HOMEPAGE_URL "https://github.com/virtualsquare/vufusearchive"
-    LANGUAGES C)
+    LANGUAGES CXX)
 
 include(GNUInstallDirs)
 include(CheckIncludeFile)
-FIND_PATH (FUSE_INCLUDE_DIR fuse_opt.h
-        /usr/local/include
-        /usr/include
-        /usr/include/fuse
-        )
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} 
-		${CMAKE_CURRENT_BINARY_DIR} ${FUSE_INCLUDE_DIR})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+#execute_process(COMMAND "sh -c 'cd archivemount-ng; git describe'"
+#		OUTPUT_VARIABLE ARCHIVEMOUNT_NG_VERSION)
+execute_process(COMMAND git describe
+		WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/archivemount-ng
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+		OUTPUT_VARIABLE ARCHIVEMOUNT_NG_VERSION)
 
-# check availability of headers and libs
-set(HEADERS_REQUIRED fuse.h)
-set(LIBS_REQUIRED fuse archive)
+find_package(PkgConfig)
+pkg_check_modules(FUSE fuse3)
+if(NOT FUSE_FOUND)
+  pkg_check_modules(FUSE REQUIRED fuse)
+endif()
+string(REGEX REPLACE "\\..*" "" FUSE_VERSION ${FUSE_VERSION})
 
 set(CMAKE_REQUIRED_DEFINITIONS -D_FILE_OFFSET_BITS=64)
+
 configure_file(config.h.in config.h @ONLY)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_FORTIFY_SOURCE=2 -O2 -pedantic -Wall -Wextra")
 
-foreach(HEADER IN LISTS HEADERS_REQUIRED)
-  check_include_file(${HEADER} ${HEADER}_OK)
-  if(NOT ${HEADER}_OK)
-    message(FATAL_ERROR "header file ${HEADER} not found")
-  endif()
-endforeach(HEADER)
+add_definitions(-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 ${FUSE_CFLAGS} -DFUSE=${FUSE_VERSION}
+		-DVERSION="${ARCHIVEMOUNT_NG_VERSION}")
 
-foreach(THISLIB IN LISTS LIBS_REQUIRED)
-  find_library(LIB${THISLIB}_OK ${THISLIB})
-  if(NOT LIB${THISLIB}_OK)
-    message(FATAL_ERROR "library lib${THISLIB} not found")
-  endif()
-endforeach(THISLIB)
-
-# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_FORTIFY_SOURCE=2 -O2 -pedantic -Wall -Wextra")
-# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic -Wall -Wextra")
-
-add_definitions(-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
-
-add_library(vufusearchive SHARED archivemount.c)
+add_library(vufusearchive SHARED archivemount.cpp)
 target_link_libraries(vufusearchive archive)
 set_target_properties(vufusearchive PROPERTIES PREFIX "")
 install(TARGETS vufusearchive
@@ -51,7 +40,6 @@ install(TARGETS vufusearchive
 
 add_custom_target(uninstall
   "${CMAKE_COMMAND}"
-    -DCADO_SPOOL_DIR=${CADO_SPOOL_DIR}
     -P "${PROJECT_SOURCE_DIR}/Uninstall.cmake"
   )
 
